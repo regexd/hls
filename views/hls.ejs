@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HLS Player</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    body {
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+      color: white;
+      font-family: sans-serif;
+    }
+    video {
+      width: 90%;
+      max-width: 720px;
+      margin-bottom: 20px;
+    }
+    .btn {
+      padding: 10px 20px;
+      background: #1d4ed8;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    #progressContainer {
+      width: 90%;
+      max-width: 720px;
+      background: #333;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-top: 20px;
+      display: none;
+    }
+    #progressBar {
+      width: 0%;
+      height: 20px;
+      background: #1d4ed8;
+      text-align: center;
+      font-size: 12px;
+      line-height: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <video id="video" controls crossorigin="anonymous"></video>
+
+  <button id="downloadBtn" class="btn">Unduh & Convert (MP4 + Hard Subtitle)</button>
+
+  <div id="progressContainer">
+    <div id="progressBar">0%</div>
+  </div>
+
+  <script>
+    const socket = io();
+    const video = document.getElementById('video');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+
+    const videoSrc = "/proxy?url=" + encodeURIComponent("<%= url %>");
+    const subtitleSrc = "/proxy-sub?url=" + encodeURIComponent("<%= sub %>");
+
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+        hls.loadSource(videoSrc);
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+          video.play();
+        });
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = videoSrc;
+      video.addEventListener('loadedmetadata', function() {
+        video.play();
+      });
+    }
+
+    // Tambahkan subtitle track
+    const track = document.createElement("track");
+    track.kind = "subtitles";
+    track.label = "Indonesia";
+    track.srclang = "id";
+    track.src = subtitleSrc;
+    track.default = true;
+    video.appendChild(track);
+
+    // Button download click
+    downloadBtn.onclick = () => {
+      socket.emit('startDownload', { url: "<%= url %>", sub: "<%= sub %>" });
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '0%';
+      progressBar.innerText = '0%';
+    };
+
+    // Listen progress
+    socket.on('progress', (msg) => {
+      // Estimasi progress dengan random increment jika durasi tidak diketahui
+      let currentWidth = parseInt(progressBar.style.width);
+      let nextWidth = currentWidth + Math.floor(Math.random() * 5) + 1;
+      if (nextWidth > 90) nextWidth = 90; // batasi max sebelum selesai
+      progressBar.style.width = nextWidth + '%';
+      progressBar.innerText = nextWidth + '%';
+    });
+
+    // Download ready
+    socket.on('downloadReady', ({ filename }) => {
+      progressBar.style.width = '100%';
+      progressBar.innerText = '100% ✅';
+
+      const link = document.createElement('a');
+      link.href = "/download-file/" + filename;
+      link.innerText = "⬇️ Unduh Video";
+      link.className = "btn";
+      link.style.display = "block";
+      link.style.marginTop = "10px";
+      progressContainer.appendChild(link);
+    });
+  </script>
+
+</body>
+</html>
