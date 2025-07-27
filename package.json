@@ -1,0 +1,15 @@
+{
+  "name": "hls-player-downloader",
+  "version": "1.0.0",
+  "description": "HLS player with download button and hard subtitle with realtime progress",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "request": "^2.88.2",
+    "socket.io": "^4.7.2"
+  }
+}
